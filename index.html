@@ -56,7 +56,7 @@
     .content { padding: 28px 32px; }
 
     /* ── Summary cards ── */
-    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+    .summary-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 28px; }
     .stat-card {
       background: #13141f; border: 1px solid #1e2030; border-radius: 14px; padding: 20px 22px;
     }
@@ -151,6 +151,10 @@
         <div class="stat-label">Accounts Created</div>
         <div class="stat-value green" id="sum-accounts">—</div>
       </div>
+      <div class="stat-card">
+        <div class="stat-label">Checkouts</div>
+        <div class="stat-value" style="color:#fbbf24" id="sum-checkouts">—</div>
+      </div>
     </div>
 
     <!-- Users table -->
@@ -167,13 +171,36 @@
             <th>Gen Tasks</th>
             <th>Invite Tasks</th>
             <th>Accounts Created</th>
+            <th>Checkouts</th>
             <th>App Opens</th>
             <th>Last Active</th>
             <th>Registered</th>
           </tr>
         </thead>
         <tbody id="table-body">
-          <tr><td colspan="8" class="loading">Loading...</td></tr>
+          <tr><td colspan="9" class="loading">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <!-- Checkouts table -->
+    <div class="table-header" style="margin-top:40px">
+      <span class="table-title">CHECKOUTS <span id="checkouts-count" style="font-size:12px;font-weight:400;color:#62638a;margin-left:8px"></span></span>
+      <input class="search-input" type="text" placeholder="Search by ASIN, product, account..." oninput="filterCheckouts(this.value)">
+    </div>
+    <div class="table-wrap">
+      <table id="checkouts-table">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>ASIN</th>
+            <th>Price</th>
+            <th>Account</th>
+            <th>User</th>
+            <th>Date</th>
+          </tr>
+        </thead>
+        <tbody id="checkouts-body">
+          <tr><td colspan="6" class="loading">Loading...</td></tr>
         </tbody>
       </table>
     </div>
@@ -184,6 +211,7 @@
 const API = 'https://orbit-backend-production-2c2f.up.railway.app'
 let adminKey = ''
 let allUsers = []
+let allCheckouts = []
 
 function login() {
   const key = document.getElementById('admin-key').value.trim()
@@ -198,9 +226,10 @@ document.getElementById('admin-key').addEventListener('keydown', e => {
 
 async function loadDashboard() {
   try {
-    const [usersRes, sumRes] = await Promise.all([
+    const [usersRes, sumRes, checkoutsRes] = await Promise.all([
       fetch(`${API}/api/admin/users`, { headers: { 'x-admin-key': adminKey } }),
-      fetch(`${API}/api/admin/summary`, { headers: { 'x-admin-key': adminKey } })
+      fetch(`${API}/api/admin/summary`, { headers: { 'x-admin-key': adminKey } }),
+      fetch(`${API}/api/admin/checkouts`, { headers: { 'x-admin-key': adminKey } })
     ])
 
     if (usersRes.status === 401) {
@@ -213,17 +242,21 @@ async function loadDashboard() {
 
     const users = await usersRes.json()
     const summary = await sumRes.json()
+    const checkouts = await checkoutsRes.json()
     allUsers = users
+    allCheckouts = Array.isArray(checkouts) ? checkouts : []
 
     document.getElementById('sum-users').textContent = summary.total_users
     document.getElementById('sum-gen').textContent = Number(summary.total_gen).toLocaleString()
     document.getElementById('sum-invite').textContent = Number(summary.total_invite).toLocaleString()
     document.getElementById('sum-accounts').textContent = Number(summary.total_accounts).toLocaleString()
+    document.getElementById('sum-checkouts').textContent = Number(summary.total_checkouts || 0).toLocaleString()
 
     const now = new Date()
     document.getElementById('last-refresh').textContent = `Refreshed ${now.toLocaleTimeString()}`
 
     renderTable(users)
+    renderCheckouts(allCheckouts)
   } catch (err) {
     alert('Error connecting to backend: ' + err.message)
   }
@@ -232,13 +265,14 @@ async function loadDashboard() {
 function renderTable(users) {
   const tbody = document.getElementById('table-body')
   if (!users.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="loading">No users yet</td></tr>'
+    tbody.innerHTML = '<tr><td colspan="9" class="loading">No users yet</td></tr>'
     return
   }
   tbody.innerHTML = users.map(u => {
     const gen = parseInt(u.tasks_amazon_gen) || 0
     const invite = parseInt(u.tasks_amazon_invite) || 0
     const accounts = parseInt(u.accounts_created) || 0
+    const checkouts = parseInt(u.checkouts_count) || 0
     const opens = parseInt(u.app_opens) || 0
     const lastActive = u.last_active_at ? timeAgo(new Date(u.last_active_at)) : '<span class="muted">Never</span>'
     const registered = u.registered_at ? new Date(u.registered_at).toLocaleDateString() : '—'
@@ -255,12 +289,53 @@ function renderTable(users) {
         <td class="${gen > 0 ? 'num' : 'num gray'}">${gen.toLocaleString()}</td>
         <td class="${invite > 0 ? 'num' : 'num gray'}">${invite.toLocaleString()}</td>
         <td class="${accounts > 0 ? 'num green' : 'num gray'}">${accounts.toLocaleString()}</td>
+        <td class="${checkouts > 0 ? 'num' : 'num gray'}" style="${checkouts > 0 ? 'color:#fbbf24' : ''}">${checkouts.toLocaleString()}</td>
         <td class="${opens > 0 ? 'num' : 'num gray'}">${opens}</td>
         <td>${lastActive}</td>
         <td class="muted">${registered}</td>
       </tr>
     `
   }).join('')
+}
+
+function renderCheckouts(list) {
+  const tbody = document.getElementById('checkouts-body')
+  const countEl = document.getElementById('checkouts-count')
+  if (countEl) countEl.textContent = `(${list.length})`
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="loading">No checkouts yet</td></tr>'
+    return
+  }
+  tbody.innerHTML = list.map(c => {
+    const price = c.price ? `<span class="num green">${parseFloat(c.price).toFixed(2)}€</span>` : '<span class="muted">—</span>'
+    const date = c.date ? new Date(c.date).toLocaleString() : '—'
+    const product = c.product_title
+      ? `<div style="font-weight:600;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${c.product_title}">${c.product_title}</div>`
+      : '<span class="muted">—</span>'
+    const user = c.user_username || c.user_email || '—'
+    return `
+      <tr>
+        <td>${product}</td>
+        <td class="mono">${c.asin || '—'}</td>
+        <td>${price}</td>
+        <td class="muted" style="font-size:12px">${c.account_email || '—'}</td>
+        <td style="font-size:12px;color:#a78bfa">${user}</td>
+        <td class="muted" style="font-size:12px">${date}</td>
+      </tr>
+    `
+  }).join('')
+}
+
+function filterCheckouts(query) {
+  const q = query.toLowerCase()
+  const filtered = q ? allCheckouts.filter(c =>
+    (c.asin || '').toLowerCase().includes(q) ||
+    (c.product_title || '').toLowerCase().includes(q) ||
+    (c.account_email || '').toLowerCase().includes(q) ||
+    (c.user_email || '').toLowerCase().includes(q) ||
+    (c.user_username || '').toLowerCase().includes(q)
+  ) : allCheckouts
+  renderCheckouts(filtered)
 }
 
 function filterTable(query) {
