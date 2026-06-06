@@ -55,6 +55,11 @@
     .btn-refresh { background: transparent; border: 1px solid #3d1a80; border-radius: 8px; color: #a78bfa; font-size: 13px; cursor: pointer; padding: 6px 14px; transition: all .15s; }
     .btn-refresh:hover { background: #1a0f38; }
     .btn-refresh.spinning { opacity: 0.6; cursor: not-allowed; }
+    .btn-archive { background: transparent; border: 1px solid #28293d; border-radius: 6px; color: #46476a; font-size: 11px; cursor: pointer; padding: 3px 8px; transition: all .15s; }
+    .btn-archive:hover { border-color: #f87171; color: #f87171; }
+    .btn-toggle-archived { background: transparent; border: 1px solid #28293d; border-radius: 8px; color: #62638a; font-size: 13px; cursor: pointer; padding: 6px 14px; transition: all .15s; }
+    .btn-toggle-archived:hover { color: #eeeef8; border-color: #46476a; }
+    .btn-toggle-archived.active { border-color: #3d1a80; color: #a78bfa; }
 
     .content { padding: 28px 32px; }
 
@@ -131,6 +136,7 @@
     <span class="topbar-logo">OR<span>B</span>IT <span style="color:#46476a;font-size:13px;font-weight:400;margin-left:8px;letter-spacing:normal">Admin</span></span>
     <div class="topbar-right">
       <span class="badge" id="last-refresh">Loading...</span>
+      <button class="btn-toggle-archived" id="toggle-archived-btn" onclick="toggleShowArchived()">👁 Show archived</button>
       <button class="btn-refresh" id="refresh-btn" onclick="manualRefresh()">↻ Refresh</button>
       <button class="btn-logout" onclick="logout()">Logout</button>
     </div>
@@ -180,6 +186,7 @@
             <th>App Opens</th>
             <th>Last Active</th>
             <th>Registered</th>
+            <th></th>
           </tr>
         </thead>
         <tbody id="table-body">
@@ -217,6 +224,43 @@ const API = 'https://orbit-backend-production-2c2f.up.railway.app'
 let adminKey = ''
 let allUsers = []
 let allCheckouts = []
+let archivedIds = new Set(JSON.parse(localStorage.getItem('orbit_admin_archived') || '[]'))
+let showArchived = false
+
+function saveArchived() {
+  localStorage.setItem('orbit_admin_archived', JSON.stringify([...archivedIds]))
+}
+
+function archiveUser(id) {
+  archivedIds.add(String(id))
+  saveArchived()
+  renderTable(filterUsers(document.querySelector('.search-input')?.value || ''))
+}
+
+function unarchiveUser(id) {
+  archivedIds.delete(String(id))
+  saveArchived()
+  renderTable(filterUsers(document.querySelector('.search-input')?.value || ''))
+}
+
+function toggleShowArchived() {
+  showArchived = !showArchived
+  const btn = document.getElementById('toggle-archived-btn')
+  btn.classList.toggle('active', showArchived)
+  btn.textContent = showArchived ? '👁 Hide archived' : '👁 Show archived'
+  renderTable(filterUsers(document.querySelector('.search-input')?.value || ''))
+}
+
+function filterUsers(query) {
+  const q = query.toLowerCase()
+  return allUsers.filter(u => {
+    if (!showArchived && archivedIds.has(String(u.id))) return false
+    if (!q) return true
+    return u.email.toLowerCase().includes(q) ||
+      (u.username || '').toLowerCase().includes(q) ||
+      (u.license_key || '').toLowerCase().includes(q)
+  })
+}
 
 function login() {
   const key = document.getElementById('admin-key').value.trim()
@@ -260,7 +304,7 @@ async function loadDashboard() {
     const now = new Date()
     document.getElementById('last-refresh').textContent = `Refreshed ${now.toLocaleTimeString()}`
 
-    renderTable(users)
+    renderTable(filterUsers(''))
     renderCheckouts(allCheckouts)
   } catch (err) {
     alert('Error connecting to backend: ' + err.message)
@@ -270,7 +314,7 @@ async function loadDashboard() {
 function renderTable(users) {
   const tbody = document.getElementById('table-body')
   if (!users.length) {
-    tbody.innerHTML = '<tr><td colspan="10" class="loading">No users yet</td></tr>'
+    tbody.innerHTML = '<tr><td colspan="11" class="loading">No users yet</td></tr>'
     return
   }
   tbody.innerHTML = users.map(u => {
@@ -285,8 +329,13 @@ function renderTable(users) {
     const licPill = u.license_key
       ? `<span class="pill pill-purple">${u.license_key}</span>`
       : `<span class="pill pill-gray">None</span>`
+    const isArchived = archivedIds.has(String(u.id))
+    const archiveBtn = isArchived
+      ? `<button class="btn-archive" onclick="unarchiveUser(${u.id})" style="border-color:#3d1a80;color:#a78bfa">↩ Restore</button>`
+      : `<button class="btn-archive" onclick="archiveUser(${u.id})">Archive</button>`
+    const rowStyle = isArchived ? 'opacity:0.4;' : ''
     return `
-      <tr>
+      <tr style="${rowStyle}">
         <td>
           <div style="font-weight:600">${u.username || '—'}</div>
           <div style="font-size:12px;color:#62638a;margin-top:2px">${u.email}</div>
@@ -300,6 +349,7 @@ function renderTable(users) {
         <td class="${opens > 0 ? 'num' : 'num gray'}">${opens}</td>
         <td>${lastActive}</td>
         <td class="muted">${registered}</td>
+        <td>${archiveBtn}</td>
       </tr>
     `
   }).join('')
@@ -346,13 +396,7 @@ function filterCheckouts(query) {
 }
 
 function filterTable(query) {
-  const q = query.toLowerCase()
-  const filtered = q ? allUsers.filter(u =>
-    u.email.toLowerCase().includes(q) ||
-    (u.username || '').toLowerCase().includes(q) ||
-    (u.license_key || '').toLowerCase().includes(q)
-  ) : allUsers
-  renderTable(filtered)
+  renderTable(filterUsers(query))
 }
 
 function timeAgo(date) {
