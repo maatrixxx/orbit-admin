@@ -52,6 +52,9 @@
     .badge { background: #1a0f38; color: #a78bfa; border: 1px solid #3d1a80; border-radius: 6px; padding: 4px 10px; font-size: 12px; font-weight: 600; }
     .btn-logout { background: transparent; border: 1px solid #28293d; border-radius: 8px; color: #62638a; font-size: 13px; cursor: pointer; padding: 6px 14px; }
     .btn-logout:hover { color: #f87171; border-color: #f87171; }
+    .btn-refresh { background: transparent; border: 1px solid #3d1a80; border-radius: 8px; color: #a78bfa; font-size: 13px; cursor: pointer; padding: 6px 14px; transition: all .15s; }
+    .btn-refresh:hover { background: #1a0f38; }
+    .btn-refresh.spinning { opacity: 0.6; cursor: not-allowed; }
 
     .content { padding: 28px 32px; }
 
@@ -128,6 +131,7 @@
     <span class="topbar-logo">OR<span>B</span>IT <span style="color:#46476a;font-size:13px;font-weight:400;margin-left:8px;letter-spacing:normal">Admin</span></span>
     <div class="topbar-right">
       <span class="badge" id="last-refresh">Loading...</span>
+      <button class="btn-refresh" id="refresh-btn" onclick="manualRefresh()">↻ Refresh</button>
       <button class="btn-logout" onclick="logout()">Logout</button>
     </div>
   </div>
@@ -372,8 +376,18 @@ function logout() {
   document.getElementById('login-error').style.display = 'none'
 }
 
-// Auto-refresh every 60s
-setInterval(() => { if (adminKey) loadDashboard() }, 60000)
+// Auto-refresh every 30s
+setInterval(() => { if (adminKey) loadDashboard() }, 30000)
+
+async function manualRefresh() {
+  const btn = document.getElementById('refresh-btn')
+  if (btn.classList.contains('spinning')) return
+  btn.classList.add('spinning')
+  btn.textContent = '↻ Refreshing...'
+  await loadDashboard()
+  btn.classList.remove('spinning')
+  btn.textContent = '↻ Refresh'
+}
 </script>
 </body>
 </html>
