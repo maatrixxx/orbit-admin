@@ -64,7 +64,7 @@
     .content { padding: 28px 32px; }
 
     /* ── Summary cards ── */
-    .summary-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 28px; }
+    .summary-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; margin-bottom: 28px; }
     .stat-card {
       background: #13141f; border: 1px solid #1e2030; border-radius: 14px; padding: 20px 22px;
     }
@@ -158,8 +158,12 @@
         <div class="stat-value" id="sum-invite">—</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Accounts Created</div>
-        <div class="stat-value green" id="sum-accounts">—</div>
+        <div class="stat-label">Accounts FR 🇫🇷</div>
+        <div class="stat-value green" id="sum-accounts-fr">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Accounts JP 🇯🇵</div>
+        <div class="stat-value" style="color:#f97316" id="sum-accounts-jp">—</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">Checkouts</div>
@@ -180,7 +184,8 @@
             <th>License Key</th>
             <th>Gen Tasks</th>
             <th>Invite Tasks</th>
-            <th>Accounts Created</th>
+            <th>Accts FR 🇫🇷</th>
+            <th>Accts JP 🇯🇵</th>
             <th>Checkouts</th>
             <th>Machines</th>
             <th>App Opens</th>
@@ -236,7 +241,8 @@ function updateSummaryCards() {
   document.getElementById('sum-users').textContent = visible.length
   document.getElementById('sum-gen').textContent = visible.reduce((s, u) => s + (parseInt(u.tasks_amazon_gen) || 0), 0).toLocaleString()
   document.getElementById('sum-invite').textContent = visible.reduce((s, u) => s + (parseInt(u.tasks_amazon_invite) || 0), 0).toLocaleString()
-  document.getElementById('sum-accounts').textContent = visible.reduce((s, u) => s + (parseInt(u.accounts_created) || 0), 0).toLocaleString()
+  document.getElementById('sum-accounts-fr').textContent = visible.reduce((s, u) => s + (parseInt(u.accounts_created_fr) || 0), 0).toLocaleString()
+  document.getElementById('sum-accounts-jp').textContent = visible.reduce((s, u) => s + (parseInt(u.accounts_created_jp) || 0), 0).toLocaleString()
   document.getElementById('sum-checkouts').textContent = visible.reduce((s, u) => s + (parseInt(u.checkouts_count) || 0), 0).toLocaleString()
 }
 
@@ -319,13 +325,14 @@ async function loadDashboard() {
 function renderTable(users) {
   const tbody = document.getElementById('table-body')
   if (!users.length) {
-    tbody.innerHTML = '<tr><td colspan="11" class="loading">No users yet</td></tr>'
+    tbody.innerHTML = '<tr><td colspan="12" class="loading">No users yet</td></tr>'
     return
   }
   tbody.innerHTML = users.map(u => {
     const gen = parseInt(u.tasks_amazon_gen) || 0
     const invite = parseInt(u.tasks_amazon_invite) || 0
-    const accounts = parseInt(u.accounts_created) || 0
+    const accountsFr = parseInt(u.accounts_created_fr) || 0
+    const accountsJp = parseInt(u.accounts_created_jp) || 0
     const checkouts = parseInt(u.checkouts_count) || 0
     const machines = parseInt(u.machines_count) || 0
     const opens = parseInt(u.app_opens) || 0
@@ -348,7 +355,8 @@ function renderTable(users) {
         <td>${licPill}</td>
         <td class="${gen > 0 ? 'num' : 'num gray'}">${gen.toLocaleString()}</td>
         <td class="${invite > 0 ? 'num' : 'num gray'}">${invite.toLocaleString()}</td>
-        <td class="${accounts > 0 ? 'num green' : 'num gray'}">${accounts.toLocaleString()}</td>
+        <td class="${accountsFr > 0 ? 'num green' : 'num gray'}">${accountsFr.toLocaleString()}</td>
+        <td class="${accountsJp > 0 ? 'num' : 'num gray'}" style="${accountsJp > 0 ? 'color:#f97316' : ''}">${accountsJp.toLocaleString()}</td>
         <td class="${checkouts > 0 ? 'num' : 'num gray'}" style="${checkouts > 0 ? 'color:#fbbf24' : ''}">${checkouts.toLocaleString()}</td>
         <td class="${machines > 0 ? 'num' : 'num gray'}" style="${machines > 1 ? 'color:#f87171' : ''}" title="${machines > 1 ? 'Multiple machines' : ''}">${machines}</td>
         <td class="${opens > 0 ? 'num' : 'num gray'}">${opens}</td>
