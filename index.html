@@ -231,16 +231,27 @@ function saveArchived() {
   localStorage.setItem('orbit_admin_archived', JSON.stringify([...archivedIds]))
 }
 
+function updateSummaryCards() {
+  const visible = allUsers.filter(u => !archivedIds.has(String(u.id)))
+  document.getElementById('sum-users').textContent = visible.length
+  document.getElementById('sum-gen').textContent = visible.reduce((s, u) => s + (parseInt(u.tasks_amazon_gen) || 0), 0).toLocaleString()
+  document.getElementById('sum-invite').textContent = visible.reduce((s, u) => s + (parseInt(u.tasks_amazon_invite) || 0), 0).toLocaleString()
+  document.getElementById('sum-accounts').textContent = visible.reduce((s, u) => s + (parseInt(u.accounts_created) || 0), 0).toLocaleString()
+  document.getElementById('sum-checkouts').textContent = visible.reduce((s, u) => s + (parseInt(u.checkouts_count) || 0), 0).toLocaleString()
+}
+
 function archiveUser(id) {
   archivedIds.add(String(id))
   saveArchived()
   renderTable(filterUsers(document.querySelector('.search-input')?.value || ''))
+  updateSummaryCards()
 }
 
 function unarchiveUser(id) {
   archivedIds.delete(String(id))
   saveArchived()
   renderTable(filterUsers(document.querySelector('.search-input')?.value || ''))
+  updateSummaryCards()
 }
 
 function toggleShowArchived() {
@@ -275,9 +286,8 @@ document.getElementById('admin-key').addEventListener('keydown', e => {
 
 async function loadDashboard() {
   try {
-    const [usersRes, sumRes, checkoutsRes] = await Promise.all([
+    const [usersRes, checkoutsRes] = await Promise.all([
       fetch(`${API}/api/admin/users`, { headers: { 'x-admin-key': adminKey } }),
-      fetch(`${API}/api/admin/summary`, { headers: { 'x-admin-key': adminKey } }),
       fetch(`${API}/api/admin/checkouts`, { headers: { 'x-admin-key': adminKey } })
     ])
 
@@ -290,16 +300,11 @@ async function loadDashboard() {
     document.getElementById('dashboard').style.display = 'block'
 
     const users = await usersRes.json()
-    const summary = await sumRes.json()
     const checkouts = await checkoutsRes.json()
     allUsers = users
     allCheckouts = Array.isArray(checkouts) ? checkouts : []
 
-    document.getElementById('sum-users').textContent = summary.total_users
-    document.getElementById('sum-gen').textContent = Number(summary.total_gen).toLocaleString()
-    document.getElementById('sum-invite').textContent = Number(summary.total_invite).toLocaleString()
-    document.getElementById('sum-accounts').textContent = Number(summary.total_accounts).toLocaleString()
-    document.getElementById('sum-checkouts').textContent = Number(summary.total_checkouts || 0).toLocaleString()
+    updateSummaryCards()
 
     const now = new Date()
     document.getElementById('last-refresh').textContent = `Refreshed ${now.toLocaleTimeString()}`
