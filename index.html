@@ -61,6 +61,30 @@
     .btn-toggle-archived:hover { color: #eeeef8; border-color: #46476a; }
     .btn-toggle-archived.active { border-color: #3d1a80; color: #a78bfa; }
 
+    /* ── Tabs ── */
+    .tabs { display: flex; gap: 4px; padding: 0 28px; border-bottom: 1px solid #1e2030; background: #0f1018; }
+    .tab { padding: 12px 18px; font-size: 13px; font-weight: 500; color: #62638a; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s; }
+    .tab:hover { color: #eeeef8; }
+    .tab.active { color: #a78bfa; border-bottom-color: #7c3aed; }
+
+    /* ── ASIN grid ── */
+    .asin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-top: 24px; }
+    .asin-card { background: #13141f; border: 1px solid #1e2030; border-radius: 12px; overflow: hidden; position: relative; transition: border-color .15s; }
+    .asin-card:hover { border-color: #3d1a80; }
+    .asin-card img { width: 100%; height: 160px; object-fit: contain; background: #fff; padding: 8px; }
+    .asin-card-body { padding: 10px 12px 12px; }
+    .asin-code { font-family: 'Courier New', monospace; font-size: 12px; color: #a78bfa; font-weight: 600; }
+    .asin-title { font-size: 11px; color: #62638a; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .asin-del { position: absolute; top: 6px; right: 6px; background: rgba(248,113,113,0.15); border: 1px solid #f87171; border-radius: 6px; color: #f87171; font-size: 11px; cursor: pointer; padding: 2px 7px; opacity: 0; transition: opacity .15s; }
+    .asin-card:hover .asin-del { opacity: 1; }
+    .asin-add-row { display: flex; gap: 10px; align-items: center; margin-bottom: 4px; }
+    .asin-input { flex: 1; padding: 10px 14px; background: #191a28; border: 1px solid #28293d; border-radius: 8px; color: #eeeef8; font-size: 13px; outline: none; }
+    .asin-input:focus { border-color: #7c3aed; }
+    .btn-add-asin { padding: 10px 20px; background: #7c3aed; border: none; border-radius: 8px; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .btn-add-asin:hover { background: #6d28d9; }
+    .btn-add-asin:disabled { background: #2d1a5e; color: #62638a; cursor: not-allowed; }
+    .asin-hint { font-size: 11px; color: #46476a; }
+
     .content { padding: 28px 32px; }
 
     /* ── Summary cards ── */
@@ -142,7 +166,15 @@
     </div>
   </div>
 
+  <div class="tabs">
+    <div class="tab active" id="tab-users" onclick="switchTab('users')">👥 Users</div>
+    <div class="tab" id="tab-checkouts" onclick="switchTab('checkouts')">🏆 Checkouts</div>
+    <div class="tab" id="tab-asins" onclick="switchTab('asins')">🎁 ASINs</div>
+  </div>
+
   <div class="content">
+    <!-- ── Users + Checkouts section ── -->
+    <div id="section-users-checkouts">
     <!-- Summary -->
     <div class="summary-grid">
       <div class="stat-card">
@@ -221,6 +253,24 @@
         </tbody>
       </table>
     </div>
+    </div> <!-- /section-users-checkouts -->
+
+    <!-- ── ASINs section ── -->
+    <div id="section-asins" style="display:none">
+      <div class="table-header" style="margin-bottom:0">
+        <span class="table-title">INVITE ASINs <span id="asins-count" style="font-size:12px;font-weight:400;color:#62638a;margin-left:8px"></span></span>
+      </div>
+      <p style="font-size:12px;color:#46476a;margin:6px 0 18px">Paste an Amazon product URL — the ASIN and image are extracted automatically.</p>
+      <div class="asin-add-row">
+        <input class="asin-input" id="asin-url-input" placeholder="https://www.amazon.fr/dp/B0CX4KPFTB" onkeydown="if(event.key==='Enter')addAsin()">
+        <button class="btn-add-asin" id="asin-add-btn" onclick="addAsin()">+ Add ASIN</button>
+      </div>
+      <p class="asin-hint" id="asin-status"></p>
+      <div class="asin-grid" id="asin-grid">
+        <p style="color:#46476a;font-size:13px;grid-column:1/-1;padding:40px 0;text-align:center">Loading...</p>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -435,6 +485,90 @@ function logout() {
 
 // Auto-refresh every 30s
 setInterval(() => { if (adminKey) loadDashboard() }, 30000)
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+let currentTab = 'users'
+function switchTab(tab) {
+  currentTab = tab
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
+  document.getElementById('tab-' + tab).classList.add('active')
+  document.getElementById('section-users-checkouts').style.display = (tab === 'asins') ? 'none' : 'block'
+  document.getElementById('section-asins').style.display = (tab === 'asins') ? 'block' : 'none'
+  // Toggle topbar controls visibility
+  const topbarControls = document.getElementById('toggle-archived-btn')
+  topbarControls.style.display = tab === 'asins' ? 'none' : ''
+  if (tab === 'asins') loadAsins()
+}
+
+// ── ASIN management ───────────────────────────────────────────────────────────
+let allAsins = []
+
+async function loadAsins() {
+  try {
+    const res = await fetch(`${API}/api/asins/admin`, { headers: { 'x-admin-key': adminKey } })
+    if (!res.ok) return
+    allAsins = await res.json()
+    renderAsins()
+  } catch {}
+}
+
+function renderAsins() {
+  const grid = document.getElementById('asin-grid')
+  const countEl = document.getElementById('asins-count')
+  if (countEl) countEl.textContent = `(${allAsins.length})`
+  if (!allAsins.length) {
+    grid.innerHTML = '<p style="color:#46476a;font-size:13px;grid-column:1/-1;padding:40px 0;text-align:center">No ASINs yet — paste an Amazon URL above to add one.</p>'
+    return
+  }
+  grid.innerHTML = allAsins.map(a => `
+    <div class="asin-card">
+      <img src="${a.image_url}" alt="${a.asin}" onerror="this.style.display='none'">
+      <div class="asin-card-body">
+        <div class="asin-code">${a.asin}</div>
+        <div class="asin-title" title="${a.title || ''}">${a.title || '—'}</div>
+      </div>
+      <button class="asin-del" onclick="deleteAsin(${a.id})">✕</button>
+    </div>
+  `).join('')
+}
+
+async function addAsin() {
+  const input = document.getElementById('asin-url-input')
+  const btn = document.getElementById('asin-add-btn')
+  const status = document.getElementById('asin-status')
+  const url = input.value.trim()
+  if (!url) return
+  btn.disabled = true
+  btn.textContent = 'Adding...'
+  status.textContent = '⏳ Fetching product info...'
+  status.style.color = '#62638a'
+  try {
+    const res = await fetch(`${API}/api/asins/admin`, {
+      method: 'POST',
+      headers: { 'x-admin-key': adminKey, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    })
+    const data = await res.json()
+    if (!res.ok) { status.textContent = '❌ ' + (data.error || 'Error'); status.style.color = '#f87171' }
+    else {
+      input.value = ''
+      status.textContent = `✅ Added ${data.asin}${data.title ? ' — ' + data.title.slice(0, 60) : ''}`
+      status.style.color = '#34d399'
+      await loadAsins()
+    }
+  } catch (err) {
+    status.textContent = '❌ ' + err.message
+    status.style.color = '#f87171'
+  }
+  btn.disabled = false
+  btn.textContent = '+ Add ASIN'
+}
+
+async function deleteAsin(id) {
+  if (!confirm('Remove this ASIN from the list?')) return
+  await fetch(`${API}/api/asins/admin/${id}`, { method: 'DELETE', headers: { 'x-admin-key': adminKey } })
+  await loadAsins()
+}
 
 async function manualRefresh() {
   const btn = document.getElementById('refresh-btn')
