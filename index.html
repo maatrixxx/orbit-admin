@@ -262,21 +262,34 @@
       </div>
       <p style="font-size:12px;color:#46476a;margin:6px 0 18px">Enter the ASIN and paste the product image URL.</p>
       <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:6px">
-        <div style="display:flex;flex-direction:column;gap:5px;width:160px">
+        <div style="display:flex;flex-direction:column;gap:5px;width:80px">
+          <label style="font-size:11px;color:#62638a;text-transform:uppercase;letter-spacing:.05em">Market</label>
+          <select id="asin-market-input" style="padding:10px 8px;background:#191a28;border:1px solid #28293d;border-radius:8px;color:#eeeef8;font-size:13px;outline:none">
+            <option value="FR">🇫🇷 FR</option>
+            <option value="UK">🇬🇧 UK</option>
+            <option value="JP">🇯🇵 JP</option>
+          </select>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;width:150px">
           <label style="font-size:11px;color:#62638a;text-transform:uppercase;letter-spacing:.05em">ASIN</label>
           <input class="asin-input" id="asin-code-input" placeholder="B0CX4KPFTB" maxlength="10" style="font-family:monospace;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')addAsin()">
         </div>
-        <div style="display:flex;flex-direction:column;gap:5px;flex:1;min-width:220px">
+        <div style="display:flex;flex-direction:column;gap:5px;flex:1;min-width:200px">
           <label style="font-size:11px;color:#62638a;text-transform:uppercase;letter-spacing:.05em">Image URL</label>
-          <input class="asin-input" id="asin-img-input" placeholder="https://..." onkeydown="if(event.key==='Enter')addAsin()">
+          <input class="asin-input" id="asin-img-input" placeholder="https://m.media-amazon.com/images/I/..." onkeydown="if(event.key==='Enter')addAsin()">
         </div>
-        <div style="display:flex;flex-direction:column;gap:5px;min-width:160px">
+        <div style="display:flex;flex-direction:column;gap:5px;min-width:140px">
           <label style="font-size:11px;color:#62638a;text-transform:uppercase;letter-spacing:.05em">Title (optional)</label>
           <input class="asin-input" id="asin-title-input" placeholder="Product name..." onkeydown="if(event.key==='Enter')addAsin()">
         </div>
         <button class="btn-add-asin" id="asin-add-btn" onclick="addAsin()">+ Add</button>
       </div>
       <p class="asin-hint" id="asin-status"></p>
+      <div style="display:flex;gap:2px;margin-top:20px;margin-bottom:0;border-bottom:1px solid #1e2030">
+        <div class="tab active" id="asin-tab-FR" onclick="switchAsinTab('FR')" style="font-size:12px;padding:8px 16px">🇫🇷 France</div>
+        <div class="tab" id="asin-tab-UK" onclick="switchAsinTab('UK')" style="font-size:12px;padding:8px 16px">🇬🇧 United Kingdom</div>
+        <div class="tab" id="asin-tab-JP" onclick="switchAsinTab('JP')" style="font-size:12px;padding:8px 16px">🇯🇵 Japan</div>
+      </div>
       <div class="asin-grid" id="asin-grid">
         <p style="color:#46476a;font-size:13px;grid-column:1/-1;padding:40px 0;text-align:center">Loading...</p>
       </div>
@@ -513,6 +526,13 @@ function switchTab(tab) {
 
 // ── ASIN management ───────────────────────────────────────────────────────────
 let allAsins = []
+let currentAsinTab = 'FR'
+
+function switchAsinTab(market) {
+  currentAsinTab = market
+  ;['FR','UK','JP'].forEach(m => document.getElementById('asin-tab-'+m)?.classList.toggle('active', m === market))
+  renderAsins()
+}
 
 async function loadAsins() {
   try {
@@ -526,12 +546,13 @@ async function loadAsins() {
 function renderAsins() {
   const grid = document.getElementById('asin-grid')
   const countEl = document.getElementById('asins-count')
-  if (countEl) countEl.textContent = `(${allAsins.length})`
-  if (!allAsins.length) {
-    grid.innerHTML = '<p style="color:#46476a;font-size:13px;grid-column:1/-1;padding:40px 0;text-align:center">No ASINs yet — paste an Amazon URL above to add one.</p>'
+  const filtered = allAsins.filter(a => (a.marketplace || 'FR') === currentAsinTab)
+  if (countEl) countEl.textContent = `(${filtered.length} ${currentAsinTab})`
+  if (!filtered.length) {
+    grid.innerHTML = `<p style="color:#46476a;font-size:13px;grid-column:1/-1;padding:40px 0;text-align:center">No ${currentAsinTab} ASINs yet.</p>`
     return
   }
-  grid.innerHTML = allAsins.map(a => `
+  grid.innerHTML = filtered.map(a => `
     <div class="asin-card">
       <img src="${a.image_url}" alt="${a.asin}" onerror="this.style.display='none'">
       <div class="asin-card-body">
@@ -552,6 +573,7 @@ async function addAsin() {
   const asin = asinInput.value.trim().toUpperCase()
   const image_url = imgInput.value.trim()
   const title = titleInput.value.trim() || null
+  const marketplace = document.getElementById('asin-market-input').value
   if (!asin || !/^[A-Z0-9]{10}$/.test(asin)) { status.textContent = '❌ Invalid ASIN (must be 10 chars)'; status.style.color = '#f87171'; return }
   if (!image_url) { status.textContent = '❌ Image URL required'; status.style.color = '#f87171'; return }
   btn.disabled = true
@@ -561,14 +583,15 @@ async function addAsin() {
     const res = await fetch(`${API}/api/asins/admin`, {
       method: 'POST',
       headers: { 'x-admin-key': adminKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ asin, image_url, title })
+      body: JSON.stringify({ asin, image_url, title, marketplace })
     })
     const data = await res.json()
     if (!res.ok) { status.textContent = '❌ ' + (data.error || 'Error'); status.style.color = '#f87171' }
     else {
       asinInput.value = ''; imgInput.value = ''; titleInput.value = ''
-      status.textContent = `✅ ${data.asin} added`
+      status.textContent = `✅ ${data.asin} added (${data.marketplace || marketplace})`
       status.style.color = '#34d399'
+      switchAsinTab(data.marketplace || marketplace)
       await loadAsins()
     }
   } catch (err) {
