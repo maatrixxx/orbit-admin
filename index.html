@@ -260,10 +260,21 @@
       <div class="table-header" style="margin-bottom:0">
         <span class="table-title">INVITE ASINs <span id="asins-count" style="font-size:12px;font-weight:400;color:#62638a;margin-left:8px"></span></span>
       </div>
-      <p style="font-size:12px;color:#46476a;margin:6px 0 18px">Paste an Amazon product URL — the ASIN and image are extracted automatically.</p>
-      <div class="asin-add-row">
-        <input class="asin-input" id="asin-url-input" placeholder="https://www.amazon.fr/dp/B0CX4KPFTB" onkeydown="if(event.key==='Enter')addAsin()">
-        <button class="btn-add-asin" id="asin-add-btn" onclick="addAsin()">+ Add ASIN</button>
+      <p style="font-size:12px;color:#46476a;margin:6px 0 18px">Enter the ASIN and paste the product image URL.</p>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:6px">
+        <div style="display:flex;flex-direction:column;gap:5px;width:160px">
+          <label style="font-size:11px;color:#62638a;text-transform:uppercase;letter-spacing:.05em">ASIN</label>
+          <input class="asin-input" id="asin-code-input" placeholder="B0CX4KPFTB" maxlength="10" style="font-family:monospace;text-transform:uppercase" oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')addAsin()">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;flex:1;min-width:220px">
+          <label style="font-size:11px;color:#62638a;text-transform:uppercase;letter-spacing:.05em">Image URL</label>
+          <input class="asin-input" id="asin-img-input" placeholder="https://..." onkeydown="if(event.key==='Enter')addAsin()">
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;min-width:160px">
+          <label style="font-size:11px;color:#62638a;text-transform:uppercase;letter-spacing:.05em">Title (optional)</label>
+          <input class="asin-input" id="asin-title-input" placeholder="Product name..." onkeydown="if(event.key==='Enter')addAsin()">
+        </div>
+        <button class="btn-add-asin" id="asin-add-btn" onclick="addAsin()">+ Add</button>
       </div>
       <p class="asin-hint" id="asin-status"></p>
       <div class="asin-grid" id="asin-grid">
@@ -533,26 +544,30 @@ function renderAsins() {
 }
 
 async function addAsin() {
-  const input = document.getElementById('asin-url-input')
+  const asinInput = document.getElementById('asin-code-input')
+  const imgInput = document.getElementById('asin-img-input')
+  const titleInput = document.getElementById('asin-title-input')
   const btn = document.getElementById('asin-add-btn')
   const status = document.getElementById('asin-status')
-  const url = input.value.trim()
-  if (!url) return
+  const asin = asinInput.value.trim().toUpperCase()
+  const image_url = imgInput.value.trim()
+  const title = titleInput.value.trim() || null
+  if (!asin || !/^[A-Z0-9]{10}$/.test(asin)) { status.textContent = '❌ Invalid ASIN (must be 10 chars)'; status.style.color = '#f87171'; return }
+  if (!image_url) { status.textContent = '❌ Image URL required'; status.style.color = '#f87171'; return }
   btn.disabled = true
   btn.textContent = 'Adding...'
-  status.textContent = '⏳ Fetching product info...'
-  status.style.color = '#62638a'
+  status.textContent = ''
   try {
     const res = await fetch(`${API}/api/asins/admin`, {
       method: 'POST',
       headers: { 'x-admin-key': adminKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url })
+      body: JSON.stringify({ asin, image_url, title })
     })
     const data = await res.json()
     if (!res.ok) { status.textContent = '❌ ' + (data.error || 'Error'); status.style.color = '#f87171' }
     else {
-      input.value = ''
-      status.textContent = `✅ Added ${data.asin}${data.title ? ' — ' + data.title.slice(0, 60) : ''}`
+      asinInput.value = ''; imgInput.value = ''; titleInput.value = ''
+      status.textContent = `✅ ${data.asin} added`
       status.style.color = '#34d399'
       await loadAsins()
     }
@@ -561,7 +576,7 @@ async function addAsin() {
     status.style.color = '#f87171'
   }
   btn.disabled = false
-  btn.textContent = '+ Add ASIN'
+  btn.textContent = '+ Add'
 }
 
 async function deleteAsin(id) {
