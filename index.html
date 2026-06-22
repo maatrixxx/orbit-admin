@@ -76,7 +76,8 @@
     .asin-code { font-family: 'Courier New', monospace; font-size: 12px; color: #a78bfa; font-weight: 600; }
     .asin-title { font-size: 11px; color: #62638a; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .asin-del { position: absolute; top: 6px; right: 6px; background: rgba(248,113,113,0.15); border: 1px solid #f87171; border-radius: 6px; color: #f87171; font-size: 11px; cursor: pointer; padding: 2px 7px; opacity: 0; transition: opacity .15s; }
-    .asin-card:hover .asin-del { opacity: 1; }
+    .asin-edit { position: absolute; top: 6px; right: 32px; background: rgba(167,139,250,0.15); border: 1px solid #a78bfa; border-radius: 6px; color: #a78bfa; font-size: 11px; cursor: pointer; padding: 2px 7px; opacity: 0; transition: opacity .15s; }
+    .asin-card:hover .asin-del, .asin-card:hover .asin-edit { opacity: 1; }
     .asin-add-row { display: flex; gap: 10px; align-items: center; margin-bottom: 4px; }
     .asin-input { flex: 1; padding: 10px 14px; background: #191a28; border: 1px solid #28293d; border-radius: 8px; color: #eeeef8; font-size: 13px; outline: none; }
     .asin-input:focus { border-color: #7c3aed; }
@@ -283,6 +284,7 @@
           <input class="asin-input" id="asin-title-input" placeholder="Product name..." onkeydown="if(event.key==='Enter')addAsin()">
         </div>
         <button class="btn-add-asin" id="asin-add-btn" onclick="addAsin()">+ Add</button>
+        <button class="btn-logout" id="asin-cancel-edit-btn" onclick="cancelEditAsin()" style="display:none">Cancel</button>
       </div>
       <p class="asin-hint" id="asin-status"></p>
       <div style="display:flex;gap:2px;margin-top:20px;margin-bottom:0;border-bottom:1px solid #1e2030">
@@ -559,9 +561,39 @@ function renderAsins() {
         <div class="asin-code">${a.asin}</div>
         <div class="asin-title" title="${a.title || ''}">${a.title || '—'}</div>
       </div>
+      <button class="asin-edit" onclick="editAsin(${a.id})" title="Edit">✎</button>
       <button class="asin-del" onclick="deleteAsin(${a.id})">✕</button>
     </div>
   `).join('')
+}
+
+let editingAsinId = null
+
+function editAsin(id) {
+  const a = allAsins.find(x => x.id === id)
+  if (!a) return
+  editingAsinId = id
+  const asinInput = document.getElementById('asin-code-input')
+  asinInput.value = a.asin
+  asinInput.disabled = true
+  document.getElementById('asin-img-input').value = a.image_url || ''
+  document.getElementById('asin-title-input').value = a.title || ''
+  document.getElementById('asin-market-input').value = a.marketplace || 'FR'
+  document.getElementById('asin-add-btn').textContent = 'Save changes'
+  document.getElementById('asin-cancel-edit-btn').style.display = ''
+  document.getElementById('asin-status').textContent = ''
+  asinInput.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
+function cancelEditAsin() {
+  editingAsinId = null
+  document.getElementById('asin-code-input').disabled = false
+  document.getElementById('asin-code-input').value = ''
+  document.getElementById('asin-img-input').value = ''
+  document.getElementById('asin-title-input').value = ''
+  document.getElementById('asin-add-btn').textContent = '+ Add'
+  document.getElementById('asin-cancel-edit-btn').style.display = 'none'
+  document.getElementById('asin-status').textContent = ''
 }
 
 async function addAsin() {
@@ -570,6 +602,7 @@ async function addAsin() {
   const titleInput = document.getElementById('asin-title-input')
   const btn = document.getElementById('asin-add-btn')
   const status = document.getElementById('asin-status')
+  const isEditing = editingAsinId !== null
   const asin = asinInput.value.trim().toUpperCase()
   const image_url = imgInput.value.trim()
   const title = titleInput.value.trim() || null
@@ -577,7 +610,7 @@ async function addAsin() {
   if (!asin || !/^[A-Z0-9]{10}$/.test(asin)) { status.textContent = '❌ Invalid ASIN (must be 10 chars)'; status.style.color = '#f87171'; return }
   if (!image_url) { status.textContent = '❌ Image URL required'; status.style.color = '#f87171'; return }
   btn.disabled = true
-  btn.textContent = 'Adding...'
+  btn.textContent = isEditing ? 'Saving...' : 'Adding...'
   status.textContent = ''
   try {
     const res = await fetch(`${API}/api/asins/admin`, {
@@ -588,8 +621,11 @@ async function addAsin() {
     const data = await res.json()
     if (!res.ok) { status.textContent = '❌ ' + (data.error || 'Error'); status.style.color = '#f87171' }
     else {
+      asinInput.disabled = false
       asinInput.value = ''; imgInput.value = ''; titleInput.value = ''
-      status.textContent = `✅ ${data.asin} added (${data.marketplace || marketplace})`
+      document.getElementById('asin-cancel-edit-btn').style.display = 'none'
+      editingAsinId = null
+      status.textContent = isEditing ? `✅ ${data.asin} updated` : `✅ ${data.asin} added (${data.marketplace || marketplace})`
       status.style.color = '#34d399'
       switchAsinTab(data.marketplace || marketplace)
       await loadAsins()
@@ -599,7 +635,7 @@ async function addAsin() {
     status.style.color = '#f87171'
   }
   btn.disabled = false
-  btn.textContent = '+ Add'
+  btn.textContent = editingAsinId !== null ? 'Save changes' : '+ Add'
 }
 
 async function deleteAsin(id) {
