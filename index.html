@@ -171,6 +171,7 @@
     <div class="tab active" id="tab-users" onclick="switchTab('users')">👥 Users</div>
     <div class="tab" id="tab-checkouts" onclick="switchTab('checkouts')">🏆 Checkouts</div>
     <div class="tab" id="tab-asins" onclick="switchTab('asins')">🎁 ASINs</div>
+    <div class="tab" id="tab-members" onclick="switchTab('members')">🔗 Members</div>
   </div>
 
   <div class="content">
@@ -297,11 +298,36 @@
       </div>
     </div>
 
+    <!-- ── Members section ── -->
+    <div id="section-members" style="display:none">
+      <div class="table-header" style="margin-bottom:16px">
+        <span class="table-title">DISCORD MEMBERS <span id="members-count" style="font-size:12px;font-weight:400;color:#62638a;margin-left:8px"></span></span>
+        <button class="btn-refresh" onclick="loadMembers()" style="font-size:12px;padding:6px 14px">↻ Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <table id="members-table">
+          <thead>
+            <tr>
+              <th>Discord</th>
+              <th>Whop User ID</th>
+              <th>Status</th>
+              <th>Verified</th>
+              <th>Last check (9h cron)</th>
+            </tr>
+          </thead>
+          <tbody id="members-body">
+            <tr><td colspan="5" class="loading">Click the tab to load...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 </div>
 
 <script>
 const API = 'https://orbit-backend-production-2c2f.up.railway.app'
+const BOT_API = 'https://orbit-verify-bot-production.up.railway.app'
 let adminKey = ''
 let allUsers = []
 let allCheckouts = []
@@ -518,12 +544,56 @@ function switchTab(tab) {
   currentTab = tab
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'))
   document.getElementById('tab-' + tab).classList.add('active')
-  document.getElementById('section-users-checkouts').style.display = (tab === 'asins') ? 'none' : 'block'
+  document.getElementById('section-users-checkouts').style.display = (tab === 'users' || tab === 'checkouts') ? 'block' : 'none'
   document.getElementById('section-asins').style.display = (tab === 'asins') ? 'block' : 'none'
-  // Toggle topbar controls visibility
+  document.getElementById('section-members').style.display = (tab === 'members') ? 'block' : 'none'
   const topbarControls = document.getElementById('toggle-archived-btn')
-  topbarControls.style.display = tab === 'asins' ? 'none' : ''
+  topbarControls.style.display = (tab === 'users' || tab === 'checkouts') ? '' : 'none'
   if (tab === 'asins') loadAsins()
+  if (tab === 'members') loadMembers()
+}
+
+// ── Members (Discord × Whop) ──────────────────────────────────────────────────
+let allMembers = []
+
+async function loadMembers() {
+  document.getElementById('members-body').innerHTML = '<tr><td colspan="5" class="loading">Loading...</td></tr>'
+  try {
+    const res = await fetch(`${BOT_API}/admin/members-data?key=${encodeURIComponent(adminKey)}`)
+    if (!res.ok) { document.getElementById('members-body').innerHTML = '<tr><td colspan="5" class="loading">Error — check ADMIN_SECRET on Railway</td></tr>'; return }
+    const data = await res.json()
+    allMembers = data.members || []
+    renderMembers()
+  } catch (err) {
+    document.getElementById('members-body').innerHTML = `<tr><td colspan="5" class="loading">Error: ${err.message}</td></tr>`
+  }
+}
+
+function renderMembers() {
+  const tbody = document.getElementById('members-body')
+  const countEl = document.getElementById('members-count')
+  if (countEl) countEl.textContent = `(${allMembers.length})`
+  if (!allMembers.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="loading">No verified members yet</td></tr>'
+    return
+  }
+  tbody.innerHTML = allMembers.map(m => {
+    const statusColor = m.status === 'active' ? '#34d399' : m.status === 'expired' ? '#f87171' : '#fbbf24'
+    const statusBg = m.status === 'active' ? '#052e16' : m.status === 'expired' ? '#1f0a0a' : '#1c1500'
+    const statusBorder = m.status === 'active' ? '#166534' : m.status === 'expired' ? '#7f1d1d' : '#92400e'
+    const avatar = m.avatar
+      ? `<img src="${m.avatar}" style="width:24px;height:24px;border-radius:50%;margin-right:8px;vertical-align:middle">`
+      : `<span style="width:24px;height:24px;border-radius:50%;background:#28293d;display:inline-block;margin-right:8px;vertical-align:middle"></span>`
+    const verified = m.verified_at ? new Date(m.verified_at).toLocaleDateString('fr-FR') : '—'
+    const checked = m.last_checked ? new Date(m.last_checked).toLocaleString('fr-FR') : 'Not yet'
+    return `<tr>
+      <td>${avatar}<span style="font-weight:600">${m.username || '—'}</span><span style="font-size:11px;color:#46476a;margin-left:6px">${m.discord_id}</span></td>
+      <td class="mono">${m.whop_user_id || '—'}</td>
+      <td><span class="pill" style="background:${statusBg};color:${statusColor};border:1px solid ${statusBorder}">${m.status || 'pending'}</span></td>
+      <td class="muted" style="font-size:12px">${verified}</td>
+      <td class="muted" style="font-size:12px">${checked}</td>
+    </tr>`
+  }).join('')
 }
 
 // ── ASIN management ───────────────────────────────────────────────────────────
