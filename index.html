@@ -268,6 +268,7 @@
           <label style="font-size:11px;color:#62638a;text-transform:uppercase;letter-spacing:.05em">Market</label>
           <select id="asin-market-input" style="padding:10px 8px;background:#191a28;border:1px solid #28293d;border-radius:8px;color:#eeeef8;font-size:13px;outline:none">
             <option value="FR">🇫🇷 FR</option>
+            <option value="BE">🇧🇪 BE</option>
             <option value="UK">🇬🇧 UK</option>
             <option value="JP">🇯🇵 JP</option>
           </select>
@@ -290,6 +291,7 @@
       <p class="asin-hint" id="asin-status"></p>
       <div style="display:flex;gap:2px;margin-top:20px;margin-bottom:0;border-bottom:1px solid #1e2030">
         <div class="tab active" id="asin-tab-FR" onclick="switchAsinTab('FR')" style="font-size:12px;padding:8px 16px">🇫🇷 France</div>
+        <div class="tab" id="asin-tab-BE" onclick="switchAsinTab('BE')" style="font-size:12px;padding:8px 16px">🇧🇪 Belgium</div>
         <div class="tab" id="asin-tab-UK" onclick="switchAsinTab('UK')" style="font-size:12px;padding:8px 16px">🇬🇧 United Kingdom</div>
         <div class="tab" id="asin-tab-JP" onclick="switchAsinTab('JP')" style="font-size:12px;padding:8px 16px">🇯🇵 Japan</div>
       </div>
@@ -602,7 +604,7 @@ let currentAsinTab = 'FR'
 
 function switchAsinTab(market) {
   currentAsinTab = market
-  ;['FR','UK','JP'].forEach(m => document.getElementById('asin-tab-'+m)?.classList.toggle('active', m === market))
+  ;['FR','BE','UK','JP'].forEach(m => document.getElementById('asin-tab-'+m)?.classList.toggle('active', m === market))
   renderAsins()
 }
 
