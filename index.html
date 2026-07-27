@@ -271,6 +271,7 @@
             <option value="BE">🇧🇪 BE</option>
             <option value="UK">🇬🇧 UK</option>
             <option value="JP">🇯🇵 JP</option>
+            <option value="DE">🇩🇪 DE</option>
           </select>
         </div>
         <div style="display:flex;flex-direction:column;gap:5px;width:150px">
@@ -294,6 +295,7 @@
         <div class="tab" id="asin-tab-BE" onclick="switchAsinTab('BE')" style="font-size:12px;padding:8px 16px">🇧🇪 Belgium</div>
         <div class="tab" id="asin-tab-UK" onclick="switchAsinTab('UK')" style="font-size:12px;padding:8px 16px">🇬🇧 United Kingdom</div>
         <div class="tab" id="asin-tab-JP" onclick="switchAsinTab('JP')" style="font-size:12px;padding:8px 16px">🇯🇵 Japan</div>
+        <div class="tab" id="asin-tab-DE" onclick="switchAsinTab('DE')" style="font-size:12px;padding:8px 16px">🇩🇪 Germany</div>
       </div>
       <div class="asin-grid" id="asin-grid">
         <p style="color:#46476a;font-size:13px;grid-column:1/-1;padding:40px 0;text-align:center">Loading...</p>
@@ -604,7 +606,7 @@ let currentAsinTab = 'FR'
 
 function switchAsinTab(market) {
   currentAsinTab = market
-  ;['FR','BE','UK','JP'].forEach(m => document.getElementById('asin-tab-'+m)?.classList.toggle('active', m === market))
+  ;['FR','BE','UK','JP','DE'].forEach(m => document.getElementById('asin-tab-'+m)?.classList.toggle('active', m === market))
   renderAsins()
 }
 
